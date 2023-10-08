@@ -30,11 +30,10 @@ default_args = dict(
     dataset = 'cifar10',
     momentum = 0.9,
     first_decay = 0.5,
-    ntk_noise_scale = 0.0,
-    gaussian_noise_scale = 0.0,
     lr_gamma_decay = 1.0, 
     lr_flow=1e-4,
     flow_steps=100,
+    flow_every = 50,
     wd_flow=0.0,
     wd_gamma_decay = 1.0,
     ckpt = None, 
@@ -59,7 +58,13 @@ def configuration(args=None):
         "--flow_steps",
         type=int,
         metavar="N",
-        help="Number of flow iters. " + "Default: %(default)s.",
+        help="Number of gradient flow iters. " + "Default: %(default)s.",
+    )
+    tgroup.add_argument(
+        "--flow_every",
+        type=int,
+        metavar="N",
+        help="Lr is decayed at multiples of this number. " + "Default: %(default)s.",
     )
     tgroup.add_argument(
         "--batch_size",
@@ -174,16 +179,7 @@ def configuration(args=None):
         help="Path to specify config file: " + "%(default)s.",
     )
     expgroup.add_argument('--no_data_augm', action='store_true')
-    expgroup.add_argument(
-        "--ntk_noise_scale",
-        type=float,
-        help="Ntk noise scale: " + "%(default)s.",
-    )
-    expgroup.add_argument(
-        "--gaussian_noise_scale",
-        type=float,
-        help=" Gaussian noise scale: " + "%(default)s.",
-    )
+
     #--------------------------------------------------------------------------------
     # DATA OPTIONS 
     #--------------------------------------------------------------------------------

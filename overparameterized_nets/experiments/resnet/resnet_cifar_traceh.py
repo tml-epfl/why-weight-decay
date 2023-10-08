@@ -169,7 +169,7 @@ with tqdm(range(start_epoch, config.epochs), desc=f'Epochs', unit='epoch') as te
 # --------------------------------------------------------------------------------
 # GRADIENT FLOW
 # --------------------------------------------------------------------------------
-        if ep % 2 == 0:
+        if ep % config.flow_every == 0:
             model2 = copy.deepcopy(model)
             opt_ft = SGD(model2.parameters(), lr=config.lr_flow,
                          momentum=config.momentum, weight_decay=config.wd_flow)  # Check if you need WD here
