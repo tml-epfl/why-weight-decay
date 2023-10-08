@@ -14,13 +14,14 @@ import pandas as pd
 from math import sqrt
 from torch.optim.optimizer import Optimizer
 import copy
-#from pyhessian import hessian  # Hessian computation
+from pyhessian import hessian  # Hessian computation
 from functorch import make_functional, vmap, vjp, jvp, jacrev, make_functional_with_buffers
 import numpy as np
 
 SUBSET = 500
 JAC = False
-HESS = False
+HESS = True
+
 
 def compute_jacobian(loader, model):
     jacs = []
@@ -48,32 +49,45 @@ def evaluate(model, loaders, loss_fn, context='test'):
             with autocast():
                 # + model(torch.fliplr(ims))) / 2.  Test-time augmentation
                 out = (model(ims))
-                loss += loss_fn(out, labs).detach().cpu().item()*ims.shape[0]
+                loss += loss_fn(out, labs).detach().cpu().item()
                 total_correct += out.argmax(1).eq(labs).sum().cpu().item()
                 total_num += ims.shape[0]
     return 1 - total_correct / total_num, loss / total_num
 
+def eval(model, loaders_eval, loss_fn, ep, aim_writer, context='SDE'): 
+    test_err, test_loss = evaluate(
+        model, loaders_eval, loss_fn, context='test')
+    train_err, train_loss = evaluate(
+        model, loaders_eval, loss_fn, context='train')
+    l2 = sum([(param**2).sum()
+             for param in model.parameters()]).detach().cpu().item()
+    aim_writer.track({'Test Error': test_err, 'Test Loss': 0.5*config.wd*l2+test_loss,
+                     'Test Cross Entropy': test_loss}, context={'subset': context}, step=ep)
+    aim_writer.track({'Train Error': train_err, 'Train Loss': 0.5*config.wd*l2+train_loss,
+                     'Train Cross Entropy': train_loss, 'L2': sqrt(l2), 'reg': 0.5*config.wd*l2}, context={'subset': context}, step=ep)
 
-def compute_jac(loaders, model):
+def compute_jac(loaders, model, ep, aim_writer, context='SDE'):
     ############## JACOBIAN COMPUTATION ################
     print("============> COMPUTING JACOBIAN <============")
     jac_norm = compute_jacobian(loaders['train'], model)
-    return jac_norm
+
+    aim_writer.track({'J_norm': jac_norm},  context={'subset': context}, step=ep)
 
 
-def compute_hess(loaders, model, loss, top_eig=False):
+def compute_hess(loaders, model, loss, ep, top_eig=False, aim_writer=None, context='SDE'):
     print("============> COMPUTING HESSIAN <============")
     hessian_comp = hessian(
         model, loss, dataloader=loaders['train'], cuda=True)
     trace = np.mean(hessian_comp.trace())
     if top_eig:
-        eigenvalues, top_eigenvector = hessian_comp.eigenvalues()
-        return trace, eigenvalues[-1]
+        eigenvalues, _ = hessian_comp.eigenvalues()
+        aim_writer.track({'trace_H': trace , 'top_eig':  eigenvalues[-1]},  context={'subset': context}, step=ep)
+
     else:
-        return trace
+        aim_writer.track({'trace_H': trace},  context={'subset': context}, step=ep)
 
 
-def train(model, loaders, loaders_eval, loss_fn, opt, scaler, ep, aim_writer, context, ema=None, ma=False, p_radius=None):
+def train(model, loaders, loaders_eval, loss_fn, opt, scaler, ep, aim_writer, ema=None, ma=False, p_radius=None):
     model.train()
     if ma:
         model_ma = copy.deepcopy(model).eval()
@@ -106,41 +120,19 @@ def train(model, loaders, loaders_eval, loss_fn, opt, scaler, ep, aim_writer, co
         ma_test_err, ma_test_loss = evaluate(model_ma, loaders_eval, loss_fn)
         aim_writer.track({'Test Error': ma_test_err, 'Test Cross Entropy': ma_test_loss}, context={
                          'subset': 'ma'}, step=ep)
-    test_err, test_loss = evaluate(
-        model, loaders_eval, loss_fn, context='test')
-    train_err, train_loss = evaluate(
-        model, loaders_eval, loss_fn, context='train')
-    l2 = sum([(param**2).sum()
-             for param in model.parameters()]).detach().cpu().item()
-    aim_writer.track({'Test Error': test_err, 'Test Loss': 0.5*config.wd*l2+test_loss,
-                     'Test Cross Entropy': test_loss}, context={'subset': context}, step=ep)
-    aim_writer.track({'Train Error': train_err, 'Train Loss': 0.5*config.wd*l2+train_loss,
-                     'Train Cross Entropy': train_loss, 'L2': sqrt(l2), 'reg': 0.5*config.wd*l2}, context={'subset': context}, step=ep)
-    return test_err, train_err, 0.5*config.wd*l2+test_loss, 0.5*config.wd*l2+train_loss, test_loss, train_loss, sqrt(l2)
 
 
 # --------------------------------------------------------------------------------
 # SETUP EXPERIMENT
 # --------------------------------------------------------------------------------
 config = configuration()
-device, logger, aim_writer = set_exp(config)
-logger.info(" ".join(sys.argv))
+device, aim_writer = set_exp(config)
 if config.dataset == 'cifar100':    
     n_cls = 100 # TODO: take it from dataset
 else: 
     n_cls = 10
 model = get_models.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
                              batch_norm=config.batch_norm, freeze_last_layer=False, learnable_bn=True).to(memory_format=torch.channels_last).cuda()
-# model = get_models_max.get_model(config.model, n_cls, config.half_prec,
-#                                  get_dataset.shapes_dict[config.dataset], config.model_width, activation='relu', droprate=0.0).to(memory_format=torch.channels_last).cuda()
-if config.radius is not None: 
-    with torch.no_grad():
-        norm = torch.norm(
-            torch.cat([p.reshape(-1) for p in model.parameters() if p.requires_grad]), p=2)
-        for param in model.parameters():
-            if param.requires_grad:
-                param.div_(norm/config.radius)
-
 model_ema = copy.deepcopy(model).eval()
 l2 = sum([(param**2).sum()
          for param in model.parameters()]).detach().cpu().item()
@@ -153,8 +145,6 @@ if config.lr_flow is not None:
 else:
     gamma_lr = config.lr_gamma_decay
 
-scheduler = CustomMultiStepLR(opt, [int(
-    config.epochs*config.first_decay)], gamma_lr=gamma_lr, gamma_wd=config.wd_gamma_decay)
 scaler = GradScaler()
 loss_fn = CrossEntropyLoss()
 loaders = get_dataset.create_dataloaders(
@@ -164,36 +154,41 @@ loaders_eval = get_dataset.create_dataloaders(
 h_j_loaders = get_dataset.create_dataloaders(
     'cifar10_5k', config.no_data_augm, 50, device)
 
+# --------------------------------------------------------------------------------
+# TRAINING
+# --------------------------------------------------------------------------------
 with tqdm(range(start_epoch, config.epochs), desc=f'Epochs', unit='epoch') as tepoch:
     for ep in tepoch:
         tepoch.set_description(f"Epoch {ep}")
-        test_err, train_err, test_loss, train_loss, test_CE, train_CE, l2_sde = train(
-            model, loaders, loaders_eval, loss_fn, opt, scaler, ep, aim_writer, context='SDE', ema=model_ema, ma=False, p_radius = config.radius)
-        scheduler.step()
+        train(model, loaders, loaders_eval, loss_fn, opt, scaler, ep, aim_writer, ema=model_ema, ma=False)
+        eval(model, loaders_eval, loss_fn, ep, aim_writer, context='SDE')
         aim_writer.track({'learning rate': opt.param_groups[0]['lr'], 'lambda': opt.param_groups[0]['weight_decay']}, context={
                          'subset': 'SDE'}, step=ep)
         get_models.bn_update(loaders['train'], model_ema)
-        ema_train_err, ema_train_loss = evaluate(
-            model_ema, loaders_eval, loss_fn, context='train')
-        ema_test_err, ema_test_loss = evaluate(
-            model_ema, loaders_eval, loss_fn, context='test')
-        model_ema.eval()
-        ema_l2 = sqrt(sum([(param**2).sum()
-                      for param in model_ema.parameters()]).detach().cpu().item())
-        if JAC and ep % 50 == 0.0:
-            jac_norm_flow = compute_jac(
-                h_j_loaders, model_ema)
-            aim_writer.track(
-                {'J_norm': jac_norm_flow},  context={
-                    'subset': 'ema'}, step=ep)
-        if HESS and ep % 50 == 0.0:
-            trace_flow = compute_hess(h_j_loaders, model_ema, loss_fn)
-            aim_writer.track(
-                {'trace_H': trace_flow},  context={
-                    'subset': 'ema'}, step=ep)
+        eval(model_ema, loaders_eval, loss_fn, ep, aim_writer, context='ema')
+# --------------------------------------------------------------------------------
+# GRADIENT FLOW
+# --------------------------------------------------------------------------------
+        if ep % 2 == 0:
+            model2 = copy.deepcopy(model)
+            opt_ft = SGD(model2.parameters(), lr=config.lr_flow,
+                         momentum=config.momentum, weight_decay=config.wd_flow)  # Check if you need WD here
 
-        aim_writer.track({'Test Error': ema_test_err, 'Test Cross Entropy': ema_test_loss, 'Train Error': ema_train_err, 'Train Cross Entropy': ema_train_loss, 'L2': ema_l2}, context={
-                         'subset': 'ema'}, step=ep)
-
-        tepoch.set_postfix(Train_CE=train_CE,
-                           Train_e=train_err, Test_e=test_err)
+            with tqdm(range(ep, ep+config.flow_steps), desc=f'Flow Epochs', unit='epoch', leave=False) as tepoch2:
+                for ep2 in tepoch2:
+                    tepoch2.set_description(f"Flow {ep}")
+                    train(model2, loaders, loaders_eval, loss_fn, opt_ft, scaler, ep2, aim_writer, p_radius=None)
+                # I am only evaluating the last point of thefolow to make it faster 
+                eval(model2, loaders_eval, loss_fn, ep, aim_writer, context=f'flow_{ep}')
+            
+            get_models.save_model(
+                ep, model, opt, config.out_dir, 'ckpt_SDE')
+            get_models.save_model(
+                ep, model_ema, opt, config.out_dir, 'ckpt_ema')
+            get_models.save_model(
+                ep, model2, opt, config.out_dir, 'ckpt_flow')
+            
+            if JAC:
+                compute_jac(h_j_loaders, model2, ep=ep, aim_writer=aim_writer, context=f'flow')
+            if HESS:
+                compute_hess(h_j_loaders, model2, loss_fn, ep=ep, aim_writer=aim_writer, context=f'flow')

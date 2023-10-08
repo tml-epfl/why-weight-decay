@@ -3,7 +3,6 @@ import random
 import string
 from datetime import datetime
 import logging
-from hypnettorch.utils import logger_config
 import numpy as np
 import torch
 import yaml
@@ -74,17 +73,6 @@ def set_exp(config):
 
     dictionary_parameters = vars(config)
 
-    # Initialize logger.
-    logger_name = '%s_%d' % (config.exp_name + '_logger', int(time() * 1000))
-    logger = logger_config.config_logger(logger_name,
-                                         os.path.join(
-                                             config.out_dir, 'logfile.txt'),
-                                         logging.DEBUG, logging.INFO if config.loglevel_info else logging.DEBUG)
-    # FIXME If we don't disable this, then the multiprocessing from the data
-    # loader causes all messages to be logged twice. I could not find the cause
-    # of this problem, but this simple switch fixes it.
-    logger.propagate = False
-
     # Deterministic computation.
     torch.manual_seed(config.random_seed)
     torch.cuda.manual_seed_all(config.random_seed)
@@ -97,10 +85,6 @@ def set_exp(config):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-        if hasattr(config, 'num_workers') and config.num_workers > 1:
-            logger.warning('Deterministic run desired but not possible with ' +
-                           'more than 1 worker (see "num_workers").')
-
     # Select torch device.
     assert (hasattr(config, 'no_cuda') or hasattr(config, 'use_cuda'))
     assert (not hasattr(config, 'no_cuda') or not hasattr(config, 'use_cuda'))
@@ -110,10 +94,9 @@ def set_exp(config):
     else:
         use_cuda = config.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    logger.info('Using cuda: ' + str(use_cuda))
 
     with open(log_dir + "/" + "parameters.yml", "w") as yaml_file:
         yaml.dump(dictionary_parameters, stream=yaml_file,
                   default_flow_style=False)
 
-    return device, logger, aim_writer
+    return device, aim_writer

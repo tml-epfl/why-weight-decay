@@ -1,9 +1,10 @@
 from typing import List
-
+import os 
 import torch as ch
 import torchvision
-import numpy as np 
+from ffcv.writer import DatasetWriter
 from ffcv.fields import IntField, RGBImageField
+import numpy as np 
 from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
 from ffcv.loader import Loader, OrderOption
 from ffcv.pipeline.operation import Operation
@@ -16,43 +17,61 @@ from torchvision import datasets, transforms
 CIFAR_MEAN = [125.307, 122.961, 113.8575]
 CIFAR_STD = [51.5865, 50.847, 51.255]
 
-def get_cifar10_loaders(batch_size,subset=None):
-    # Data
-    print('==> Preparing data..')
-    transform_train = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-
-    transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-    ])
-
-    trainset = torchvision.datasets.CIFAR10(root='/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR', train=True, download=True, transform=transform_train)
-    if subset is not None:
-        # Create a new dataset with 10000 training points and 1000 points per class
-        new_train_data = []
-        new_train_labels = []
-        for i in range(10):
-            indices = np.where(np.array(trainset.targets) == i)[0][:subset]
-            new_train_data.append(trainset.data[indices])
-            new_train_labels += [i]*subset
-
-        new_train_data = np.concatenate(new_train_data, axis=0)
-        trainset.data = new_train_data
-        trainset.targets = new_train_labels
-
-    trainloader = ch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=False, num_workers=20)
-
-    testset = torchvision.datasets.CIFAR10(root='/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR', train=False, download=True, transform=transform_test)
-    testloader = ch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=20)
-
-    loaders = {'train': trainloader, 'test': testloader}
-    return loaders
-
 def create_dataloaders(dataset, no_data_augm , batch_size, device):
     loaders = {}
+
+    # Create loaders
+    if dataset == 'cifar10': 
+        path = f'/data/CIFAR/cifar10'
+        if not os.path.isfile(path+f'_train.beton'): 
+            data = {
+                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+            for (name, ds) in data.items():
+                writer = DatasetWriter(f'/data/CIFAR10/cifar10_{name}.beton', {
+                    'image': RGBImageField(),
+                    'label': IntField()
+                })
+                writer.from_indexed_dataset(ds)
+
+    elif dataset == 'cifar10_5k':
+        path = f'/data/CIFAR/cifar10_5k'
+        if not os.path.isfile(path+f'_train.beton'): 
+            data = {
+                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+            n_points = 500 #n_points per class 
+            new_train_data = []
+            new_train_labels = []
+            for i in range(10):
+                indices = np.where(np.array(data['train'].targets) == i)[0][:n_points]
+                new_train_data.append(data['train'].data[indices])
+                new_train_labels += [i]*n_points
+            new_train_data = np.concatenate(new_train_data, axis=0)
+            data['train'].data = new_train_data
+            data['train'].targets = new_train_labels
+            for (name, ds) in data.items():
+                writer = DatasetWriter(f'/data/CIFAR10/cifar10_5k_{name}.beton', {
+                    'image': RGBImageField(),
+                    'label': IntField()
+                })
+                writer.from_indexed_dataset(ds)
+
+    elif dataset == 'cifar100':
+        path = f'/data/CIFAR100/cifar100'
+        if not os.path.isfile(path+f'_train.beton'): 
+            data = {
+                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+            for (name, ds) in data.items():
+                writer = DatasetWriter(f'/data/CIFAR100/cifar100_{name}.beton', {
+                    'image': RGBImageField(),
+                    'label': IntField()
+                })
+                writer.from_indexed_dataset(ds)
+
+
+
     for name in ['train', 'test']:
         label_pipeline: List[Operation] = [IntDecoder(), ToTensor(), ToDevice(device), Squeeze()]
         image_pipeline: List[Operation] = [SimpleRGBImageDecoder()]
@@ -72,17 +91,6 @@ def create_dataloaders(dataset, no_data_augm , batch_size, device):
             torchvision.transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
         ])
 
-        # Create loaders
-        if dataset == 'cifar10_binary': 
-            path = f'/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR/cifar_10000'
-        elif dataset == 'cifar10_10000':
-            path = f'/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR/cifar_10000'
-        elif dataset == 'cifar10_5k':
-            path = f'/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR/cifar10_5k'
-        elif dataset == 'cifar100':
-            path = f'/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR100/cifar100'
-        else: 
-            path = f'/tmldata1/fdangelo/understanding-weight-decay/data/CIFAR/cifar'
         loaders[name] = Loader(path+f'_{name}.beton',
                                 batch_size=batch_size,
                                 num_workers=20,
