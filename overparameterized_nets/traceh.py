@@ -1,12 +1,12 @@
 import pdb
 import torch
 from torch.cuda.amp import GradScaler, autocast
-from configs.resnet import configuration
+from configs.config import configuration
 from torch.nn import CrossEntropyLoss
 from torch.optim import SGD
 from tqdm import tqdm
 from exp_utils.setup_exp import set_exp
-from models import get_models
+from models import get_models, get_models_scale_inv
 from data import get_dataset
 from math import sqrt
 import copy
@@ -127,12 +127,24 @@ if config.dataset == 'cifar100':
     n_cls = 100 # TODO: take it from dataset
 else: 
     n_cls = 10
-model = get_models.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
-                             batch_norm=config.batch_norm, freeze_last_layer=False, learnable_bn=True).to(memory_format=torch.channels_last).cuda()
+
+if config.scale_inv: 
+    model = get_models_scale_inv.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
+                                batch_norm=config.batch_norm, learnable_bn=False).to(memory_format=torch.channels_last).cuda()
+else:
+    model = get_models.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
+                                batch_norm=config.batch_norm, freeze_last_layer=False, learnable_bn=True).to(memory_format=torch.channels_last).cuda()
+
 model_ema = copy.deepcopy(model).eval()
-l2 = sum([(param**2).sum()
-         for param in model.parameters()]).detach().cpu().item()
-print(l2)
+#Init on the sphere
+if config.radius is not None: 
+    with torch.no_grad():
+        norm = torch.norm(
+            torch.cat([p.reshape(-1) for p in model.parameters() if p.requires_grad]), p=2)
+        for param in model.parameters():
+            if param.requires_grad:
+                param.div_(norm/config.radius)
+
 start_epoch = 0
 opt = SGD(model.parameters(), lr=config.lr,
           momentum=config.momentum, weight_decay=config.wd)

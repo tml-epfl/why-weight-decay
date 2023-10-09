@@ -14,9 +14,43 @@ Weight decay is a broadly used technique for training state-of-the-art deep netw
 
 
 ## Weight decay for overparameterized deep learning
-TODO(in progress)
-
-
+### Env setup 
+First you need to install all the required packages
+```bash
+cd overparameterized_nets
+sudo apt-get update -y
+sudo apt-get install libgl1 -y
+conda env create -f environment.yml
+```
+### Scripts 
+Here we list the main scripts to reproduce the figures in the overparameterized deep nets section 
+#### Experiments in Figure 1:
+```bash 
+python train.py --model vgg16 --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.1 --lr_flow 1e-4 --first_decay 0.5 --wd 0.008 --exp_name vgg_fig1
+python train.py --model vgg16 --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.1 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0 --exp_name vgg_fig1
+python train.py --model vgg16 --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.01 --lr_flow 1e-4 --first_decay 0.5 --wd 0.008 --exp_name vgg_fig1
+python train.py --model vgg16 --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.01 --lr_flow 1e-4 --first_decay 0.5 --wd 0. --exp_name vgg_fig1
+python train.py --model resnet18 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.08 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0125 --exp_name resnet18_fig1
+python train.py --model resnet18 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.08 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0 --exp_name resnet18_fig1
+python train.py --model resnet18 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.001 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0125 --exp_name resnet18_fig1
+python train.py --model resnet18 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.001 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0 --exp_name resnet18_fig1
+python train.py --model resnet34preact --dataset cifar100 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.15 --lr_flow 1e-4 --first_decay 0.5 --wd 0.01 --exp_name resnet34_fig1
+python train.py --model resnet34preact --dataset cifar100 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.15 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0 --exp_name resnet34_fig1
+python train.py --model resnet34preact --dataset cifar100 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.001 --lr_flow 1e-4 --first_decay 0.5 --wd 0.01 --exp_name resnet34_fig1
+python train.py --model resnet34preact --dataset cifar100 --batch_norm --batch_size 128 --epochs 1000 --momentum 0.0 --lr 0.001 --lr_flow 1e-4 --first_decay 0.5 --wd 0.0 --exp_name resnet34_fig1
+```
+#### Experiments in Figure 2:
+```bash
+python traceh.py --model resnet18 --batch_norm --scale_inv --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.001 --lr_flow 1e-4 --flow_every 2 --flow_steps 100 --radius 1.0 --wd 0.0 --exp_name fig2
+python traceh.py --model resnet18 --batch_norm --scale_inv --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.003 --lr_flow 1e-4 --flow_every 2 --flow_steps 100 --radius 1.0 --wd 0.0 --exp_name fig2
+python traceh.py --model resnet18 --batch_norm --scale_inv --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.005 --lr_flow 1e-4 --flow_every 2 --flow_steps 100 --radius 1.0 --wd 0.0 --exp_name fig2
+```
+#### Experiments in Figure 3:
+```bash
+python traceh.py --model resnet18 --batch_norm --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.1 --lr_flow 1e-3 --flow_every 2 --flow_steps 100 --wd 0.015 --exp_name fig3
+python traceh.py --model resnet18 --batch_norm --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.1 --lr_flow 1e-3 --flow_every 2 --flow_steps 100 --wd 0.015 --exp_name fig3
+python traceh.py --model resnet18 --batch_norm --batch_size 128 --epochs 100 --momentum 0.0 --lr 0.1 --lr_flow 1e-3 --flow_every 2 --flow_steps 100 --wd 0.015 --exp_name fig3
+```
 
 
 
@@ -128,4 +162,5 @@ python train.py config/train_gpt2_small_block256.py --batch_size=32 --gradient_a
 python train.py config/train_gpt2_small_block256.py --batch_size=32 --gradient_accumulation_steps=8 --learning_rate=0.0006 --min_lr=0.00006 --lr_decay_iters=60000  --max_iters=50000 --weight_decay=0.0 --wandb_run_name=owt_gpt2small_block256_slower_lr_decay --out_dir=models
 python train.py config/train_gpt2_small_block256.py --batch_size=32 --gradient_accumulation_steps=8 --learning_rate=0.0006 --min_lr=0.00006 --lr_decay_iters=65000  --max_iters=50000 --weight_decay=0.0 --wandb_run_name=owt_gpt2small_block256_slower_lr_decay
 ```
+
 

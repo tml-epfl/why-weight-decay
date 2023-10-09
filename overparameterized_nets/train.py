@@ -6,7 +6,7 @@ from torch.optim import SGD
 from tqdm import tqdm
 from exp_utils.setup_exp import set_exp
 from exp_utils.utils import CustomMultiStepLR
-from models import get_models
+from models import get_models,get_models_scale_inv
 from data import get_dataset
 from math import sqrt
 import copy
@@ -79,8 +79,13 @@ if config.dataset == 'cifar100':
     n_cls = 100
 else: 
     n_cls = 10
-model = get_models.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
-                             batch_norm=config.batch_norm, freeze_last_layer=False, learnable_bn=True).to(memory_format=torch.channels_last).cuda()
+
+if config.scale_inv: 
+    model = get_models_scale_inv.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
+                                batch_norm=config.batch_norm, learnable_bn=False).to(memory_format=torch.channels_last).cuda()
+else:
+    model = get_models.get_model(config.model, n_cls, config.half_prec, get_dataset.shapes_dict[config.dataset], config.model_width,
+                                batch_norm=config.batch_norm, freeze_last_layer=False, learnable_bn=True).to(memory_format=torch.channels_last).cuda()
 
 
 model_ema = copy.deepcopy(model).eval()

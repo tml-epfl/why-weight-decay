@@ -21,6 +21,7 @@ default_args = dict(
     wd = 0.0,
     use_cuda=True,
     det_run=True,
+    scale_inv = False,
     loglevel_info=False,
     model = 'resnet18',
     model_width = 64, #default for VGG
@@ -125,6 +126,8 @@ def configuration(args=None):
     modelgroup.add_argument('--model_width', type=int, help='model width (# conv filters on the first layer for ResNets)')
     modelgroup.add_argument('--half_prec', action='store_true', help='if enabled, runs everything as half precision [not recommended]')
     modelgroup.add_argument('--batch_norm', action = 'store_true', help = 'if enabled, adds batch-norm layers')
+    modelgroup.add_argument('--scale_inv', action = 'store_true', help = 'if enabled, makes the model scale invariant, only for resnets')
+
     #--------------------------------------------------------------------------------
     # MISCELLANEOUS OPTIONS 
     #--------------------------------------------------------------------------------

@@ -61,8 +61,8 @@ def create_dataloaders(dataset, no_data_augm , batch_size, device):
         path = f'data/CIFAR100/cifar100'
         if not os.path.isfile(path+f'_train.beton'): 
             data = {
-                'train': torchvision.datasets.CIFAR10('data/CIFAR10', train=True, download=True),
-                'test': torchvision.datasets.CIFAR10('data/CIFAR10', train=False, download=True)}
+                'train': torchvision.datasets.CIFAR100('data/CIFAR100', train=True, download=True),
+                'test': torchvision.datasets.CIFAR100('data/CIFAR100', train=False, download=True)}
             for (name, ds) in data.items():
                 writer = DatasetWriter(f'data/CIFAR100/cifar100_{name}.beton', {
                     'image': RGBImageField(),
