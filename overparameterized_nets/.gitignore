@@ -1,0 +1,7 @@
+out/
+data/CIFAR10/
+data/cifar100/
+.vscode/
+.DS_Store
+Thumbs.db
+*.cache

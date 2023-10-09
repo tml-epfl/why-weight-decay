@@ -3,18 +3,14 @@ import torch
 from torch.cuda.amp import GradScaler, autocast
 from configs.resnet import configuration
 from torch.nn import CrossEntropyLoss
-from torch.optim import SGD, lr_scheduler
+from torch.optim import SGD
 from tqdm import tqdm
 from exp_utils.setup_exp import set_exp
-from exp_utils.utils import CustomMultiStepLR
-import sys
 from models import get_models
 from data import get_dataset
-import pandas as pd
 from math import sqrt
-from torch.optim.optimizer import Optimizer
 import copy
-from pyhessian import hessian  # Hessian computation
+from pyhessian import hessian 
 from functorch import make_functional, vmap, vjp, jvp, jacrev, make_functional_with_buffers
 import numpy as np
 

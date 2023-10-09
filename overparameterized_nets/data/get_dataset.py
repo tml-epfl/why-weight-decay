@@ -12,7 +12,7 @@ from ffcv.transforms import RandomHorizontalFlip, Cutout, \
     RandomTranslate, Convert, ToDevice, ToTensor, ToTorchImage
 from ffcv.transforms.common import Squeeze
 from ffcv.writer import DatasetWriter
-from torchvision import datasets, transforms
+from torchvision import datasets
 # Note that statistics are wrt to uin8 range, [0,255].
 CIFAR_MEAN = [125.307, 122.961, 113.8575]
 CIFAR_STD = [51.5865, 50.847, 51.255]
@@ -22,24 +22,24 @@ def create_dataloaders(dataset, no_data_augm , batch_size, device):
 
     # Create loaders
     if dataset == 'cifar10': 
-        path = f'/data/CIFAR/cifar10'
+        path = f'data/CIFAR10/cifar10'
         if not os.path.isfile(path+f'_train.beton'): 
             data = {
-                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
-                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+                'train': torchvision.datasets.CIFAR10('data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('data/CIFAR10', train=False, download=True)}
             for (name, ds) in data.items():
-                writer = DatasetWriter(f'/data/CIFAR10/cifar10_{name}.beton', {
+                writer = DatasetWriter(f'data/CIFAR10/cifar10_{name}.beton', {
                     'image': RGBImageField(),
                     'label': IntField()
                 })
                 writer.from_indexed_dataset(ds)
 
     elif dataset == 'cifar10_5k':
-        path = f'/data/CIFAR/cifar10_5k'
+        path = f'data/CIFAR10/cifar10_5k'
         if not os.path.isfile(path+f'_train.beton'): 
             data = {
-                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
-                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+                'train': torchvision.datasets.CIFAR10('data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('data/CIFAR10', train=False, download=True)}
             n_points = 500 #n_points per class 
             new_train_data = []
             new_train_labels = []
@@ -51,20 +51,20 @@ def create_dataloaders(dataset, no_data_augm , batch_size, device):
             data['train'].data = new_train_data
             data['train'].targets = new_train_labels
             for (name, ds) in data.items():
-                writer = DatasetWriter(f'/data/CIFAR10/cifar10_5k_{name}.beton', {
+                writer = DatasetWriter(f'data/CIFAR10/cifar10_5k_{name}.beton', {
                     'image': RGBImageField(),
                     'label': IntField()
                 })
                 writer.from_indexed_dataset(ds)
 
     elif dataset == 'cifar100':
-        path = f'/data/CIFAR100/cifar100'
+        path = f'data/CIFAR100/cifar100'
         if not os.path.isfile(path+f'_train.beton'): 
             data = {
-                'train': torchvision.datasets.CIFAR10('/data/CIFAR10', train=True, download=True),
-                'test': torchvision.datasets.CIFAR10('/data/CIFAR10', train=False, download=True)}
+                'train': torchvision.datasets.CIFAR10('data/CIFAR10', train=True, download=True),
+                'test': torchvision.datasets.CIFAR10('data/CIFAR10', train=False, download=True)}
             for (name, ds) in data.items():
-                writer = DatasetWriter(f'/data/CIFAR100/cifar100_{name}.beton', {
+                writer = DatasetWriter(f'data/CIFAR100/cifar100_{name}.beton', {
                     'image': RGBImageField(),
                     'label': IntField()
                 })

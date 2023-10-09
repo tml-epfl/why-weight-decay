@@ -1,16 +1,11 @@
 import os
 import random
-import string
 from datetime import datetime
-import logging
 import numpy as np
 import torch
 import yaml
 from prettyprinter import pprint
-from torch.utils.tensorboard import SummaryWriter
-from time import time
 from aim import Run
-import shutil
 
 
 def set_exp(config):
@@ -22,33 +17,19 @@ def set_exp(config):
         config: configuratore for the experiment
 
     Returns:
+        device: torch devide
         aim_run: aim writer
-        writer: tensorboard writer
-        log_dir:
     """
 
-    # TODO Checkout code version
-
-    # Create experiments folders and artifacts
     experiment_name = config.exp_name
-    # random_str = "".join(random.choices(
-    #     string.ascii_letters + string.digits, k=10))
     # Create Aim writer
     aim_writer = Run(
         repo='/tmldata1/fdangelo/understanding-weight-decay/aim_paper_2', experiment=experiment_name)
+    # Create experiments folders and artifacts
     if config.date_time_dir is None:
         date_time_log_dir = datetime.now().strftime("%m-%d-%Y")
     else:
         date_time_log_dir = config.date_time_dir
-
-    # subdirname = "lr_{}_epochs_{}_wd_{}_seed_{}_{}_{}".format(
-    #     config.lr,
-    #     config.epochs,
-    #     config.wd,
-    #     config.random_seed,
-    #     datetime.now().strftime("%H%M%S"),
-    #     random_str
-    # )
     subdirname = aim_writer.hash
     log_dir = os.path.join(
         os.getcwd(),

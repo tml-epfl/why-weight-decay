@@ -1,23 +1,15 @@
-import pdb
 import torch
 from torch.cuda.amp import GradScaler, autocast
-from configs.resnet import configuration
+from configs.config import configuration
 from torch.nn import CrossEntropyLoss
-from torch.optim import SGD, lr_scheduler
+from torch.optim import SGD
 from tqdm import tqdm
 from exp_utils.setup_exp import set_exp
 from exp_utils.utils import CustomMultiStepLR
-import sys
 from models import get_models
 from data import get_dataset
-import pandas as pd
 from math import sqrt
-from torch.optim.optimizer import Optimizer
 import copy
-#from pyhessian import hessian  # Hessian computation
-from functorch import make_functional, vmap, vjp, jvp, jacrev, make_functional_with_buffers
-import numpy as np
-
 
 def evaluate(model, loaders, loss_fn, context='test'):
     model.eval()
@@ -25,7 +17,6 @@ def evaluate(model, loaders, loss_fn, context='test'):
         total_correct, total_num, loss = 0., 0., 0.
         for ims, labs in tqdm(loaders[context], leave=False):
             with autocast():
-                # + model(torch.fliplr(ims))) / 2.  Test-time augmentation
                 out = (model(ims))
                 loss += loss_fn(out, labs).detach().cpu().item()*ims.shape[0]
                 total_correct += out.argmax(1).eq(labs).sum().cpu().item()
