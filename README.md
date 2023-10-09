@@ -2,7 +2,7 @@
 
 **Maksym Andriushchenko\*, Francesco D’Angelo\*, Aditya Varre, Nicolas Flammarion (EPFL)**
 
-**Paper:** [https://arxiv.org/abs/xxx](https://arxiv.org/abs/xxx)
+**Paper:** [https://arxiv.org/abs/2310.04415](https://arxiv.org/abs/2310.04415)
 <p align="center"><img src="images/wd_summary_slide.png" width="900" /></p>
 
 ### Abstract
